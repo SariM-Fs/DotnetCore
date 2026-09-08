@@ -1,0 +1,18 @@
+## .NET
+bin/
+obj/
+*.user
+
+## Visual Studio
+.vs/
+
+## Claude Code local settings (machine-specific, not shared)
+**/.claude/settings.local.json
+
+## Logs written by NLog at runtime
+final_project_Api/logs/
+
+## Never commit secrets - these are not used by this project (User Secrets
+## live outside the repo, under %APPDATA%), but ignored defensively anyway.
+appsettings.*.local.json
+secrets.json

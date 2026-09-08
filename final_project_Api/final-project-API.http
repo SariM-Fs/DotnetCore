@@ -1,0 +1,47 @@
+@final_project_API_HostAddress = https://localhost:7051/api
+
+### Register
+POST {{final_project_API_HostAddress}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Demo Driver",
+  "email": "demo@example.com",
+  "password": "Passw0rd!",
+  "licensePlate": "12-345-67"
+}
+
+### Login
+POST {{final_project_API_HostAddress}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "demo@example.com",
+  "password": "Passw0rd!"
+}
+
+### List stations (needs a token from login/register above)
+GET {{final_project_API_HostAddress}}/stations
+Authorization: Bearer {{token}}
+
+### List spots, paginated
+GET {{final_project_API_HostAddress}}/spots?stationId=1&page=1&pageSize=6
+Authorization: Bearer {{token}}
+
+### Start a session on a spot (the limited resource) - try this twice quickly with two spots to see a 409
+POST {{final_project_API_HostAddress}}/sessions
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "spotId": 1
+}
+
+### End a session
+PATCH {{final_project_API_HostAddress}}/sessions/1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "energyDeliveredKwh": 12.5
+}
