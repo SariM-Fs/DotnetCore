@@ -13,7 +13,7 @@ Run all commands from the `server/` folder (this file's directory).
 
 ```
 # Build
-dotnet build final-project-API.sln    # or: dotnet build (from final_project_Api/)
+dotnet build final_project_Api/final-project-API.sln    # or: dotnet build (from final_project_Api/)
 
 # Run the API
 dotnet run --project final_project_Api
