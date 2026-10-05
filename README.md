@@ -5,7 +5,7 @@ charging spot, run a session, and pay for it. Admins manage stations, spots and 
 
 ## Architecture
 
-Four projects in one solution, dependencies flowing one way:
+Five projects in one solution, dependencies flowing one way:
 
 ```
 final-project-API.sln

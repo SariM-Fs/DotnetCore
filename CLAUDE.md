@@ -13,7 +13,7 @@ Run all commands from the `server/` folder (this file's directory).
 
 ```
 # Build
-dotnet build final-project-API.sln    # or: dotnet build (from final_project_Api/)
+dotnet build    # builds final-project-API.sln at the server/ root
 
 # Run the API
 dotnet run --project final_project_Api
@@ -43,7 +43,7 @@ used by the app (`(localdb)\mssqllocaldb`, see `final_project_Api/appsettings.De
 
 ## Architecture
 
-Five projects in one solution (`final-project-API.sln`), dependencies flowing one way:
+Five projects in one solution (`final-project-API.sln`, at the `server/` root), dependencies flowing one way:
 
 ```
 final_project_Core      Entities, DTOs, Enums, OperationResult<T>, service/repository interfaces
