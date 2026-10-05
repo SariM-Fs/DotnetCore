@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+**/logs/
+**/appsettings.Development.json
+**/appsettings.*.local.json
+**/secrets.json
+.git/
+.claude/
+final_project_Test/
