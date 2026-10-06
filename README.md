@@ -32,9 +32,9 @@ the same physical spot.
 
 **This project uses optimistic concurrency** to close that window:
 
-- `ChargingSpot.RowVersion` is a `[Timestamp]` (SQL Server `rowversion`) concurrency token —
-  EF Core bumps it automatically on every update, and includes the value the app *read* in the
-  `WHERE` clause of the generated `UPDATE`.
+- `ChargingSpot.Version` is a concurrency token mapped to PostgreSQL's built-in `xmin` system
+  column — the database changes it automatically on every update, and EF Core includes the value
+  the app *read* in the `WHERE` clause of the generated `UPDATE`.
 - If a second request already changed the row in between, that `UPDATE` matches zero rows and EF
   Core throws `DbUpdateConcurrencyException`.
 - `ChargingSpotService.StartSessionAsync` catches that specific exception (not a generic
@@ -54,14 +54,26 @@ repositories, for both the happy path and the rejected path.
 
 ### 1. Database
 
-This project targets **SQL Server** (LocalDB by default). The connection string lives in
-`final_project_Api/appsettings.Development.json`:
+This project targets **PostgreSQL** (via the Npgsql EF Core provider). The easiest way to get a
+local server is Docker:
 
 ```
-Server=(localdb)\mssqllocaldb;Database=EVChargingDb;Trusted_Connection=True;MultipleActiveResultSets=true
+docker run -d --name evcharging-db -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16
 ```
 
-Apply migrations from the `server/` folder:
+The development connection string lives in `final_project_Api/appsettings.Development.json` and
+matches that container:
+
+```
+Host=localhost;Port=5432;Database=EVChargingDb;Username=postgres;Password=postgres
+```
+
+In production (e.g. Render), set `DATABASE_URL` or `ConnectionStrings__DefaultConnection`. Either
+the `Host=...;Database=...` format above or a `postgres://user:password@host/db` URL (what Render
+shows) works — `Program.cs` converts the URL form for Npgsql. See [Deploying to Render](#deploying-to-render).
+
+There is one migration, `InitialCreate` (the full schema, including `ChargingSpot.Version` mapped
+to PostgreSQL's `xmin` as the concurrency token). Locally, apply it from the `server/` folder:
 
 ```
 dotnet ef database update -p final_project_Data -s final_project_Api
@@ -102,7 +114,8 @@ immediately — no manual database setup beyond the migration step above. Swagge
 dotnet test final_project_Test
 ```
 
-The concurrency integration test needs the same LocalDB instance reachable (step 1).
+The concurrency integration test needs the PostgreSQL server from step 1 running, with migrations
+applied.
 
 ## Demo users
 
@@ -113,3 +126,23 @@ The concurrency integration test needs the same LocalDB instance reachable (step
 
 Admins can PATCH station/spot status and create/delete stations & amenities
 (`[Authorize(Roles = "Admin")]`); regular drivers can browse, start/end sessions, and pay.
+
+## Deploying to Render
+
+The API ships as a Docker image (`Dockerfile` at the `server/` root). Outside Development, the app
+applies pending migrations itself on startup, so no manual `dotnet ef` step is needed there.
+
+1. **PostgreSQL** — create a Render PostgreSQL instance and copy its *Internal Database URL*.
+2. **API** — create a Web Service from this repo, runtime **Docker**, root directory `server`
+   (if the repo root isn't `server/`). Environment variables:
+
+   | Variable | Value |
+   |---|---|
+   | `DATABASE_URL` | the Internal Database URL from step 1 |
+   | `Jwt__Key` | a random string, 32+ characters |
+   | `AdminSeed__Email` / `AdminSeed__Password` | optional — seeds the Admin account |
+   | `Cors__AllowedOrigins` | the deployed client's URL, e.g. `https://ev-client.onrender.com` (comma-separate several) |
+
+3. **Client** — create a Static Site from the client repo: build command `npm install && npm run build`,
+   publish directory `dist`, and env var `VITE_API_BASE` = `https://<your-api>.onrender.com/api`.
+   Vite bakes this in at build time, so redeploy the client after changing it.

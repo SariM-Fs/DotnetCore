@@ -27,7 +27,7 @@ namespace final_project_Data.Configuration
                 .HasForeignKey(r => r.DriverId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            builder.ToTable(t => t.HasCheckConstraint("CK_Review_Rating", "[Rating] >= 1 AND [Rating] <= 5"));
+            builder.ToTable(t => t.HasCheckConstraint("CK_Review_Rating", "\"Rating\" >= 1 AND \"Rating\" <= 5"));
         }
     }
 }

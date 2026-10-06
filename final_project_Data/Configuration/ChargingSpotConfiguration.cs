@@ -11,7 +11,7 @@ namespace final_project_Data.Configuration
             builder.HasKey(s => s.Id);
             builder.Property(s => s.SpotNumber).IsRequired();
             builder.Property(s => s.Status).IsRequired();
-            builder.Property(s => s.RowVersion).IsRowVersion();
+            builder.Property(s => s.Version).IsRowVersion(); // Npgsql maps uint + IsRowVersion to xmin
 
             builder.HasIndex(s => new { s.StationId, s.SpotNumber }).IsUnique();
         }

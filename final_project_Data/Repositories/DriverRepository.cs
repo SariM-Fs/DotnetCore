@@ -12,7 +12,10 @@ namespace final_project_Data.Repositories
 
         public async Task<Driver?> GetByEmailAsync(string email, CancellationToken ct)
         {
-            return await DbSet.FirstOrDefaultAsync(d => d.Email == email, ct);
+            // PostgreSQL compares text case-sensitively (SQL Server didn't), so
+            // compare lowercased to keep "ADMIN@gmail.com" == "admin@GMAIL.com".
+            var normalized = email.ToLower();
+            return await DbSet.FirstOrDefaultAsync(d => d.Email.ToLower() == normalized, ct);
         }
     }
 }

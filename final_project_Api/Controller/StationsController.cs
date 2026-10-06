@@ -14,7 +14,7 @@ namespace final_project_API.Controllers
     {
         private readonly IStationService _stationService;
         private readonly IMapper _mapper;
-
+        
         public StationsController(IStationService stationService, IMapper mapper)
         {
             _stationService = stationService;
@@ -35,18 +35,7 @@ namespace final_project_API.Controllers
             var result = await _stationService.CreateAsync(
                 request.Name, request.Location, request.ConnectorType, request.PowerKw, request.AmenityIds, ct);
 
-            var dto = new StationDto
-            {
-                Id = result.Data!.Id,
-                Name = result.Data.Name,
-                Location = result.Data.Location,
-                ConnectorType = result.Data.ConnectorType,
-                PowerKw = result.Data.PowerKw,
-                IsActive = result.Data.IsActive,
-                TotalSpots = 0,
-                AvailableSpots = 0,
-                Amenities = result.Data.Amenities.Select(a => a.Name).ToList()
-            };
+            var dto = _mapper.Map<StationDto>(result.Data);
             return CreatedAtAction(nameof(GetAll), new { }, dto);
         }
 

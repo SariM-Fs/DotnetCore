@@ -1,5 +1,6 @@
 using final_project_API.DTOs;
 using final_project_Core.Common;
+using final_project_Core.Entities;
 using final_project_Core.Interface;
 using Microsoft.AspNetCore.Mvc;
 
@@ -26,8 +27,7 @@ namespace final_project_API.Controllers
                 return Conflict(new { message = result.Message });
             }
 
-            var (driver, token) = result.Data;
-            return Ok(new AuthResponseDto { Token = token, Name = driver.Name, Email = driver.Email, Role = driver.Role });
+            return Ok(ToResponse(result.Data));
         }
 
         [HttpPost("login")]
@@ -40,8 +40,10 @@ namespace final_project_API.Controllers
                 return Unauthorized(new { message = result.Message });
             }
 
-            var (driver, token) = result.Data;
-            return Ok(new AuthResponseDto { Token = token, Name = driver.Name, Email = driver.Email, Role = driver.Role });
+            return Ok(ToResponse(result.Data));
         }
+
+        private static AuthResponseDto ToResponse((Driver Driver, string Token) data) =>
+            new AuthResponseDto { Token = data.Token, Name = data.Driver.Name, Email = data.Driver.Email, Role = data.Driver.Role };
     }
 }

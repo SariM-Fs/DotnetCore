@@ -14,6 +14,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using NLog;
+using Npgsql;
 using NLog.Web;
 using System.Text;
 
@@ -28,12 +29,22 @@ try
     builder.Host.UseNLog();
 
     // --- Configuration-bound values (User Secrets in dev, env vars in prod) ---
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-    var jwtKey = builder.Configuration["Jwt:Key"]!;
+    // Render hands out a postgres:// URL (often as DATABASE_URL); Npgsql needs key/value form.
+    var connectionString = ToNpgsqlConnectionString(
+        builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? builder.Configuration["DATABASE_URL"]
+        ?? throw new InvalidOperationException(
+            "No database configured. Set ConnectionStrings__DefaultConnection (or DATABASE_URL)."));
+    var jwtKey = builder.Configuration["Jwt:Key"];
+    if (string.IsNullOrEmpty(jwtKey))
+    {
+        throw new InvalidOperationException(
+            "Jwt:Key is not configured. Use User Secrets in dev, or the Jwt__Key environment variable in production.");
+    }
 
     // --- EF Core ---
     builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseSqlServer(connectionString));
+        options.UseNpgsql(connectionString));
 
     // --- DI: repositories & services (interfaces live in Core, so callers never see Data/Service directly) ---
     builder.Services.AddScoped<ISpotRepository, SpotRepository>();
@@ -101,10 +112,17 @@ try
             [new OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>()
         });
     });
+    // The local Vite client, plus any deployed client URLs from config
+    // (comma-separated, e.g. the env var Cors__AllowedOrigins on Render).
+    var allowedOrigins = (builder.Configuration["Cors:AllowedOrigins"] ?? "")
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(o => o.TrimEnd('/'))
+        .Append("http://localhost:5173")
+        .ToArray();
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("AllowClient", p =>
-            p.WithOrigins("http://localhost:5173")
+            p.WithOrigins(allowedOrigins)
              .AllowAnyHeader()
              .AllowAnyMethod());
     });
@@ -131,6 +149,33 @@ try
     using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        // Fail fast with an actionable message instead of a raw SocketException /
+        // "relation does not exist" (host/port/database only - never the password).
+        var target = new NpgsqlConnectionStringBuilder(connectionString);
+        var dbTarget = $"{target.Host}:{target.Port}/{target.Database}";
+        if (!app.Environment.IsDevelopment())
+        {
+            // A hosted database (e.g. Render) can't be migrated by hand from this
+            // machine's dotnet ef, so production applies migrations on startup
+            // (an unreachable server throws here and is logged by the catch below).
+            logger.Info("Applying any pending migrations to {DbTarget}", dbTarget);
+            db.Database.Migrate();
+        }
+        else if (!db.Database.CanConnect())
+        {
+            logger.Error("Can't reach PostgreSQL at {DbTarget}. Make sure PostgreSQL is installed and running " +
+                         "and that ConnectionStrings:DefaultConnection is correct - see README -> Database.", dbTarget);
+            return 1;
+        }
+        var pendingMigrations = db.Database.GetPendingMigrations().ToList();
+        if (pendingMigrations.Count > 0)
+        {
+            logger.Error("Database {DbTarget} is missing {Count} migration(s): {Migrations}. Run from the server/ folder: " +
+                         "dotnet ef database update -p final_project_Data -s final_project_Api",
+                         dbTarget, pendingMigrations.Count, string.Join(", ", pendingMigrations));
+            return 1;
+        }
 
         Amenity wifi = null!, cafe = null!, restroom = null!, fastCharge = null!;
         if (!db.Amenities.Any())
@@ -195,7 +240,7 @@ try
         var adminPassword = builder.Configuration["AdminSeed:Password"];
 
         if (!string.IsNullOrEmpty(adminEmail) && !string.IsNullOrEmpty(adminPassword)
-            && !db.Drivers.Any(d => d.Email == adminEmail))
+            && !db.Drivers.Any(d => d.Email.ToLower() == adminEmail.ToLower()))
         {
             db.Drivers.Add(new Driver
             {
@@ -210,6 +255,7 @@ try
     }
 
     app.Run();
+    return 0;
 }
 catch (Exception ex)
 {
@@ -219,4 +265,27 @@ catch (Exception ex)
 finally
 {
     LogManager.Shutdown();
+}
+
+// Accepts either Npgsql's "Host=...;Database=..." form (returned unchanged) or a
+// postgres://user:password@host:port/database URL, as Render provides.
+static string ToNpgsqlConnectionString(string value)
+{
+    if (!value.StartsWith("postgres://") && !value.StartsWith("postgresql://"))
+    {
+        return value;
+    }
+
+    var uri = new Uri(value);
+    var userInfo = uri.UserInfo.Split(':', 2);
+    return new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.IsDefaultPort || uri.Port < 0 ? 5432 : uri.Port,
+        Database = uri.AbsolutePath.TrimStart('/'),
+        Username = Uri.UnescapeDataString(userInfo[0]),
+        Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : null,
+        // Render's external URL requires SSL; its internal one works either way.
+        SslMode = SslMode.Prefer
+    }.ConnectionString;
 }
