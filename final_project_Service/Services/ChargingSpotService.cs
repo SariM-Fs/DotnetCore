@@ -111,15 +111,8 @@ namespace final_project_Service.Services
                     $"Session {sessionId} has already ended.");
             }
 
-            session.EndTime = DateTime.UtcNow;
             session.EnergyDeliveredKwh = energyDeliveredKwh;
-            _sessionRepository.Update(session);
-
-            if (session.Spot is not null)
-            {
-                session.Spot.Status = SpotStatus.Available;
-                _spotRepository.Update(session.Spot);
-            }
+            CloseSession(session);
 
             try
             {
@@ -151,14 +144,7 @@ namespace final_project_Service.Services
 
             foreach (var session in expiredSessions)
             {
-                session.EndTime = DateTime.UtcNow;
-                _sessionRepository.Update(session);
-
-                if (session.Spot is not null)
-                {
-                    session.Spot.Status = SpotStatus.Available;
-                    _spotRepository.Update(session.Spot);
-                }
+                CloseSession(session);
 
                 _logger.LogInformation(
                     "Session {SessionId} on spot {SpotId} auto-ended after exceeding the {MaxDuration} timeout",
@@ -168,6 +154,19 @@ namespace final_project_Service.Services
             await _sessionRepository.SaveChangesAsync(ct);
 
             return expiredSessions.Count;
+        }
+
+        // Marks the session ended and frees its spot; the caller saves (and handles concurrency).
+        private void CloseSession(ChargingSession session)
+        {
+            session.EndTime = DateTime.UtcNow;
+            _sessionRepository.Update(session);
+
+            if (session.Spot is not null)
+            {
+                session.Spot.Status = SpotStatus.Available;
+                _spotRepository.Update(session.Spot);
+            }
         }
     }
 }
