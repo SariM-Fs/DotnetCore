@@ -38,8 +38,9 @@ First-time setup (secrets are not committed — see README.md for full details):
 dotnet user-secrets set "Jwt:Key" "<32+ char random string>" --project final_project_Api
 ```
 
-The concurrency integration test (`ConcurrencyIntegrationTests.cs`) needs the same LocalDB instance
-used by the app (`(localdb)\mssqllocaldb`, see `final_project_Api/appsettings.Development.json`).
+The database is PostgreSQL (Npgsql provider). The concurrency integration test
+(`ConcurrencyIntegrationTests.cs`) needs the same local PostgreSQL used by the app
+(`localhost:5432`, see `final_project_Api/appsettings.Development.json`) with migrations applied.
 
 ## Architecture
 
@@ -67,8 +68,8 @@ private `ToActionResult` helper (`Success`→200, `NotFound`→404, `Conflict`�
 existing pattern in a controller (e.g. `SessionsController`) when adding a new one.
 
 **Optimistic concurrency on `ChargingSpot`:** a spot is the limited resource multiple drivers
-compete for. `ChargingSpot.RowVersion` is a `[Timestamp]` (SQL Server `rowversion`) concurrency
-token. `ChargingSpotService.StartSessionAsync`/`EndSessionAsync` read-check-write within one
+compete for. `ChargingSpot.Version` (`uint`, `IsRowVersion()`) is mapped by Npgsql to PostgreSQL's
+`xmin` system column and acts as the concurrency token. `ChargingSpotService.StartSessionAsync`/`EndSessionAsync` read-check-write within one
 DbContext, then catch `DbUpdateConcurrencyException` specifically (never a generic `Exception`) and
 turn it into `OperationResult.Conflict`. The early "is it Available?" check is just a fast path —
 the row version is the actual source of correctness under a race. Don't remove or generalize this

@@ -14,12 +14,12 @@ namespace final_project_Test.Tests
     public class ConcurrencyIntegrationTests
     {
         private const string ConnectionString =
-            "Server=(localdb)\\mssqllocaldb;Database=EVChargingDb;Trusted_Connection=True;TrustServerCertificate=True";
+            "Host=localhost;Port=5432;Database=EVChargingDb;Username=postgres;Password=postgres";
 
         private static AppDbContext CreateContext()
         {
             var options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseSqlServer(ConnectionString)
+                .UseNpgsql(ConnectionString)
                 .Options;
             return new AppDbContext(options);
         }
@@ -58,11 +58,11 @@ namespace final_project_Test.Tests
             spot1.Status = SpotStatus.Occupied;
             spot2.Status = SpotStatus.Occupied;
 
-            // First save wins - succeeds, and the database bumps RowVersion.
+            // First save wins - succeeds, and PostgreSQL bumps the row's xmin.
             await context1.SaveChangesAsync();
 
-            // Second save is still holding the OLD RowVersion it originally read.
-            // Its UPDATE ... WHERE Id=@id AND RowVersion=@old matches zero rows.
+            // Second save is still holding the OLD xmin (Version) it originally read.
+            // Its UPDATE ... WHERE Id=@id AND xmin=@old matches zero rows.
             Func<Task> secondSave = () => context2.SaveChangesAsync();
 
             // Assert: EF Core detects zero rows affected and throws exactly this exception.

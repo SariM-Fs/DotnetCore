@@ -11,10 +11,10 @@ namespace final_project_Core.Entities
         public int SpotNumber { get; set; }
         public SpotStatus Status { get; set; } = SpotStatus.Available;
 
-        // Concurrency token: EF Core will auto-increment this on every UPDATE.
-        // If two requests read the same RowVersion and both try to update,
-        // the second one will fail with DbUpdateConcurrencyException.
-        [System.ComponentModel.DataAnnotations.Timestamp]
-        public byte[]? RowVersion { get; set; }
+        // Concurrency token, mapped to PostgreSQL's xmin system column (see
+        // ChargingSpotConfiguration). The database changes it on every UPDATE,
+        // so if two requests read the same Version and both try to update,
+        // the second one fails with DbUpdateConcurrencyException.
+        public uint Version { get; set; }
     }
 }
