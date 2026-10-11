@@ -12,5 +12,6 @@ namespace final_project_Core.Interface
         Task<OperationResult<Review>> CreateAsync(int stationId, int driverId, string driverName, int rating, string content, CancellationToken ct);
         Task<OperationResult<Review>> ApproveAsync(int id, string adminName, CancellationToken ct);
         Task<OperationResult<Review>> RejectAsync(int id, string adminName, CancellationToken ct);
+        Task<OperationResult<Review>> DeleteAsync(int id, CancellationToken ct);
     }
 }
