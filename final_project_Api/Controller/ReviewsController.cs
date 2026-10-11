@@ -77,6 +77,15 @@ namespace final_project_API.Controllers
             return ToActionResult(result);
         }
 
+        // Lets an admin take down any review, including one already approved.
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<ReviewDto>> Delete(int id, CancellationToken ct)
+        {
+            var result = await _reviewService.DeleteAsync(id, ct);
+            return ToActionResult(result);
+        }
+
         private int GetCallerDriverId() =>
             int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 

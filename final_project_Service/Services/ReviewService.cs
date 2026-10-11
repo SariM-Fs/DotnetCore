@@ -63,6 +63,20 @@ namespace final_project_Service.Services
         public Task<OperationResult<Review>> RejectAsync(int id, string adminName, CancellationToken ct) =>
             DecideAsync(id, ReviewStatus.Rejected, adminName, ct);
 
+        public async Task<OperationResult<Review>> DeleteAsync(int id, CancellationToken ct)
+        {
+            var review = await _reviewRepository.GetByIdWithDetailsAsync(id, ct);
+            if (review is null)
+            {
+                return OperationResult<Review>.NotFound($"Review {id} not found.");
+            }
+
+            _reviewRepository.Remove(review);
+            await _reviewRepository.SaveChangesAsync(ct);
+
+            return OperationResult<Review>.Success(review);
+        }
+
         private async Task<OperationResult<Review>> DecideAsync(int id, ReviewStatus status, string adminName, CancellationToken ct)
         {
             var review = await _reviewRepository.GetByIdWithDetailsAsync(id, ct);
